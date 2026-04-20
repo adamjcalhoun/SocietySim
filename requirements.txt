@@ -1,0 +1,7 @@
+numpy
+scipy
+aiohttp
+anthropic>=0.40.0
+ollama
+pytest
+pytest-asyncio
