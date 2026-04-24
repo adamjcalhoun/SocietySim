@@ -91,6 +91,38 @@ class Simulation:
 
         self._apply_move(agent, dest)
 
+    # ── Replacement (E&A Rule: death → new agent born at random empty cell) ──
+
+    def _replace_agent(self, agent: AgentState):
+        """Reset a dead agent with fresh traits at a random empty non-zero cell."""
+        candidates = [
+            (int(r), int(c))
+            for r, c in zip(*np.where(self.grid.capacity > 0))
+            if (int(r), int(c)) not in self.grid.occupancy
+        ]
+        if not candidates:
+            return  # grid completely full; stay dead
+        pos = candidates[self.rng.integers(len(candidates))]
+        agent.pos = pos
+        agent.sugar = float(self.rng.choice([5, 10, 15, 20, 25]))
+        agent.metabolism = int(self.rng.integers(1, 5))
+        agent.vision = int(self.rng.integers(1, 7))
+        agent.max_age = int(self.rng.integers(60, 101))
+        agent.age = 0
+        agent.alive = True
+        agent.character_type = "neutral"
+        agent.character_prompt = ""
+        agent.infected = False
+        agent.infection_tick = None
+        agent.recovery_tick = None
+        agent.believes_infected = False
+        agent.disease_belief = "standard"
+        agent.disclosed_to = set()
+        agent.warned_by = set()
+        agent.fallback_count = 0
+        agent.total_moves = 0
+        self.grid.place_agent(agent.agent_id, pos)
+
     # ── Disease (Exp 2) ───────────────────────────────────────────────────────
 
     def _hamming(self, a: list, b: list) -> int:
@@ -154,14 +186,23 @@ class Simulation:
         order = self.rng.permutation(len(living))  # random sequential (E&A standard)
 
         if use_llm and self.llm:
-            # Snapshot candidates *before* anyone moves (semi-synchronous approximation)
-            # then gather all LLM calls concurrently, apply moves in random order.
             tasks = [self._llm_move(living[i]) for i in order]
             await asyncio.gather(*tasks)
         else:
             for i in order:
                 if living[i].alive:
                     self._baseline_move(living[i])
+
+        # Age increment + old-age death + replacement (E&A standard)
+        for agent in living:
+            if not agent.alive:
+                self._replace_agent(agent)
+                continue
+            agent.age += 1
+            if agent.age >= agent.max_age:
+                agent.alive = False
+                self.grid.remove_agent(agent.pos)
+                self._replace_agent(agent)
 
         # Contact events (Exp 2)
         if disease is not None:

@@ -27,6 +27,10 @@ class AgentState:
     disclosed_to: set = field(default_factory=set)
     warned_by: set = field(default_factory=set)
 
+    # Lifespan (E&A replacement mechanism)
+    age: int = 0
+    max_age: int = 0   # set at init; die of old age when age >= max_age
+
     # Diagnostics
     fallback_count: int = 0
     total_moves: int = 0
@@ -51,6 +55,7 @@ def make_agents(n: int, grid, rng: np.random.Generator) -> list[AgentState]:
             sugar=float(rng.choice([5, 10, 15, 20, 25])),
             metabolism=int(rng.integers(1, 5)),
             vision=int(rng.integers(1, 7)),
+            max_age=int(rng.integers(60, 101)),
         )
         grid.place_agent(i, pos)
         agents.append(agent)
