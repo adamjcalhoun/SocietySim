@@ -19,15 +19,20 @@ class Grid:
         return math.sqrt(dr ** 2 + dc ** 2)
 
     def _init_sugar_capacity(self) -> np.ndarray:
-        """Two-peak distribution matching E&A Figure II-2."""
+        """Two-peak distribution matching E&A Figure II-2.
+
+        Uses equal-width bands so each peak has a proper plateau rather than
+        collapsing to a single cell at max capacity (the int-truncation bug).
+        Band width = radius / max_cap = 16/4 = 4 cells per level.
+        """
         capacity = np.zeros((self.height, self.width), dtype=np.int8)
         peaks = [(15, 15), (35, 35)]
         max_cap = 4
-        radius = 16.0
+        band = 4.0  # cells per capacity level
         for r in range(self.height):
             for c in range(self.width):
                 min_dist = min(self._torus_dist(r, c, pr, pc) for pr, pc in peaks)
-                capacity[r, c] = max(0, int(max_cap * (1 - min_dist / radius)))
+                capacity[r, c] = max(0, max_cap - int(min_dist / band))
         return capacity
 
     def growback(self):
