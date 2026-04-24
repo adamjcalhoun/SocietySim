@@ -28,7 +28,7 @@ class Grid:
         capacity = np.zeros((self.height, self.width), dtype=np.int8)
         peaks = [(15, 15), (35, 35)]
         max_cap = 4
-        band = 4.0  # cells per capacity level
+        band = 3.0  # cells per capacity level; E&A target ~1600-1800 total capacity
         for r in range(self.height):
             for c in range(self.width):
                 min_dist = min(self._torus_dist(r, c, pr, pc) for pr, pc in peaks)
