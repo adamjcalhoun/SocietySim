@@ -60,7 +60,16 @@ def _assign_narrative_characters(agents, rng):
         )
 
 
-async def run_condition(condition: str, seed: int, llm=None, db: DB = None):
+CONDITION_LABELS = {
+    "A": "baseline (no LLM)",
+    "B": "LLM — neutral persona",
+    "C": "LLM — typed personas (greedy/subsistence/risk)",
+    "D": "LLM — narrative backstory personas",
+}
+
+
+async def run_condition(condition: str, seed: int, llm=None, db: DB = None,
+                        print_every: int = 0):
     rng = np.random.default_rng(seed)
     grid = Grid(rng=rng)
     agents = make_agents(N_AGENTS, grid, rng)
@@ -71,7 +80,7 @@ async def run_condition(condition: str, seed: int, llm=None, db: DB = None):
         _assign_narrative_characters(agents, rng)
 
     run_id = f"exp1_{condition}_{seed}_{uuid.uuid4().hex[:6]}"
-    use_llm = condition != "A"
+    use_llm = condition != "A" and llm is not None
 
     if db:
         backend = type(llm).__name__ if llm else None
@@ -80,21 +89,29 @@ async def run_condition(condition: str, seed: int, llm=None, db: DB = None):
         db.log_agents(run_id, agents)
 
     sim = Simulation(grid, agents, rng=rng, llm=llm, db=db, run_id=run_id)
-    history = await sim.run(ticks=N_TICKS, use_llm=use_llm)
+    history = await sim.run(ticks=N_TICKS, use_llm=use_llm, print_every=print_every)
     return run_id, history
 
 
-async def main(llm=None):
+async def main(llm=None, print_every: int = 50):
     db = DB(DB_PATH)
     seeds = list(range(N_RUNS))
 
     for condition in ["A", "B", "C", "D"]:
-        print(f"\n=== Condition {condition} ===")
+        label = CONDITION_LABELS[condition]
+        # Skip LLM conditions when no LLM is configured
+        if condition != "A" and llm is None:
+            print(f"\n=== Condition {condition}: {label} — skipped (no LLM backend) ===")
+            continue
+        print(f"\n=== Condition {condition}: {label} ===")
         for seed in seeds:
-            run_id, history = await run_condition(condition, seed, llm=llm, db=db)
+            print(f"  -- run seed={seed}")
+            run_id, history = await run_condition(
+                condition, seed, llm=llm, db=db, print_every=print_every
+            )
             final = history[-1]
             print(
-                f"  seed={seed} | ticks={len(history)} | "
+                f"  => seed={seed} done | ticks={len(history)} | "
                 f"pop={final['population']} | gini={final['gini']:.3f}"
             )
 

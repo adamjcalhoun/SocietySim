@@ -189,11 +189,17 @@ class Simulation:
 
         return stats
 
-    async def run(self, ticks: int = 250, use_llm: bool = False, disease: Optional[list] = None):
+    async def run(self, ticks: int = 250, use_llm: bool = False,
+                  disease: Optional[list] = None, print_every: int = 0):
         history = []
         for _ in range(ticks):
             stats = await self.run_tick(use_llm=use_llm, disease=disease)
             history.append(stats)
+            if print_every and self.tick % print_every == 0:
+                print(
+                    f"    tick={self.tick:4d} | pop={stats['population']:3d} | "
+                    f"gini={stats['gini']:.3f} | mean_sugar={stats['mean_sugar']:.1f}"
+                )
             if stats["population"] == 0:
                 break
         return history
